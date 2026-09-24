@@ -5,10 +5,12 @@ const error=(message,status)=>Object.assign(new Error(message),{status});
 const normalizedEmail=value=>String(value||'').trim().toLowerCase();
 
 function projectGrant(session,company){
-  if(!Object.hasOwn(COMPANY_LABELS,company) || !session?.companies?.includes(company))return null;
+  // Project documents contain contract amounts; the pilot is owner-only until
+  // a redacted Projects API can enforce read_cost for other Portal roles.
+  if(session?.superAdmin!==true || !Object.hasOwn(COMPANY_LABELS,company) || !session?.companies?.includes(company))return null;
   const grant=session.grants?.[company];
   const projects=grant?.modules?.projects;
-  return grant?.status==='active' && projects?.scope==='company' && projects?.actions?.includes('read') ? projects : null;
+  return grant?.status==='active' && projects?.scope==='company' && projects?.actions?.includes('read') && projects?.actions?.includes('read_cost') ? projects : null;
 }
 
 function portalClaims(company,grant,now=Date.now()){

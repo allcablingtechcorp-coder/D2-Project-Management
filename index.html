@@ -1430,7 +1430,7 @@
 
     let state = { 
         user: null, 
-        isSuperAdmin: false,
+        isSuperAdmin: false, portalBridge: false,
         userPerms: { tab_proj: true, tab_new: false, tab_rep: false, fin: false, costs: false, contractors: false, smart: true, hvac: false, global: false },
         projects: [], contractors: [], contractorPayments: [], contractorDocumentRequests: [], team: [], logs: [], logsUserFilter: '', logsSearchQuery: '', company: initialCompany, lang: savedLanguage, theme: 'dark',
         editingPayments: null, editingRecs: null, reportPendingPayments: null, reportProjectList: null, reportProjectListReturn: null, returnToReport: false, returnToReportAfterEdit: false, focusedProject: null, activeModule: null, archiveFilter: 'active',
@@ -2185,7 +2185,7 @@
     };
 
     window.toggleArchive = async (id, currentArchivedStatus) => {
-        if (!state.userPerms.tab_proj) return;
+        if (state.portalBridge || !state.userPerms.tab_proj) return;
         try {
             const project = state.projects.find(x => x.id === id);
             const action = currentArchivedStatus ? "Desarquivou" : "Arquivou";
@@ -2508,8 +2508,8 @@
 
     const portalCompany = new URLSearchParams(window.location.search).get('company');
     const portalCompanyAllowed = portalCompany === 'smart' || portalCompany === 'hvac';
-    // Activate after the scoped IAM signer grant and live pair/exchange checks pass.
-    const portalBridgeAvailable = false;
+    // Owner-only Projects pilot. Server and Firestore rules enforce the scope.
+    const portalBridgeAvailable = true;
     let portalExpiryNotice;
     function requestPortalToken() {
         if (!portalCompanyAllowed) return Promise.reject(new Error('Open Projects from a company in the D2 Portal.'));
@@ -4547,6 +4547,7 @@
     };
 
     window.editP = (id) => {
+        if (state.portalBridge) return;
         const p = state.projects.find(x => x.id === id); if (!p) return;
         renderVendedores(); const vendSelect = document.getElementById('f-vendedor');
         if (p.vendedor && !Array.from(vendSelect.options).some(opt => opt.value === p.vendedor)) { vendSelect.innerHTML += `<option value="${p.vendedor}">${p.vendedor} (Cadastro Antigo)</option>`; }
@@ -6665,6 +6666,7 @@ function getSellerCommissionPeriodReport(projects, startStr, endStr) {
         return `<div class="v86-finished-stamp" aria-hidden="true"><span>${state.lang === 'pt' ? 'Finalizada' : 'Finished'}</span></div>`;
     }
     function v86ProjectActions(p){
+        if (state.portalBridge) return '';
         const archiveIcon=p.archived?'package-open':'archive';
         return `<div class="v86-actions" onclick="event.stopPropagation()"><button title="${p.archived?'Reativar':'Arquivar'}" onclick="window.toggleArchive('${p.id}',${!!p.archived})"><i data-lucide="${archiveIcon}" class="w-4 h-4"></i></button><button title="Editar" onclick="window.editP('${p.id}')"><i data-lucide="edit-3" class="w-4 h-4"></i></button>${state.isSuperAdmin?`<button title="Excluir" onclick="window.deleteP('${p.id}')"><i data-lucide="trash-2" class="w-4 h-4 text-red-400"></i></button>`:''}</div>`;
     }
@@ -6694,10 +6696,10 @@ function getSellerCommissionPeriodReport(projects, startStr, endStr) {
             : (closureIssues.length
                 ? `<div class="v86-closure-alert mb-4 flex items-center gap-3 rounded-xl border border-red-300/50 bg-red-500/[.12] px-4 py-3 text-sm font-bold text-red-200 animate-pulse"><i data-lucide="triangle-alert" class="w-4 h-4 shrink-0"></i><span>${state.lang==='pt'?'Pendência de encerramento:':'Closure pending action:'} ${escapeInlineHtml(closureIssues.join(' · '))}</span></div>`
                 : '');
-        const finishAction = canFinishProject(p)
+        const finishAction = !state.portalBridge && canFinishProject(p)
             ? `<button onclick="window.finishProject('${p.id}')" class="v86-btn primary"><i data-lucide="circle-check-big" class="w-4 h-4"></i>${lifecycle.hasLifecycleConflict ? (state.lang==='pt'?'Regularizar e finalizar':'Reconcile and finish') : (state.lang==='pt'?'Finalizar':'Finish')}</button>`
             : '';
-        return `${closureNotice}<div class="v86-head no-print"><div class="v86-head-left"><button class="v86-back" aria-label="${state.lang==='pt'?'Voltar':'Back'}" title="${state.lang==='pt'?'Voltar':'Back'}" onclick="${state.activeModule?'window.closeProjectModule()':'window.closeProjectDetails()'}"><span class="v86-back-glyph" aria-hidden="true">←</span></button><div class="v86-head-copy"><div class="flex flex-wrap items-center gap-3"><h1 class="v86-title">${escapeInlineHtml(getProjectPrimaryTitle(p))}</h1><span class="v86-status ${st.cls}"><i data-lucide="${st.cls==='success'?'check-circle-2':st.cls==='warning'?'clock-3':st.cls==='danger'?'shield-alert':'circle-dot'}" class="w-3.5 h-3.5"></i>${st.text}${completed?` · ${completed}`:''}</span></div>${moduleTitle?`<div class="v86-subtitle">${escapeInlineHtml(moduleTitle)}</div>`:''}${p.nomeProjeto?`<div class="v86-meta-line"><i data-lucide="bookmark" class="w-3.5 h-3.5 shrink-0"></i><span>${escapeInlineHtml(p.nomeProjeto)}</span></div>`:''}${p.endereco?`<div class="v86-meta-line"><i data-lucide="map-pin" class="w-3.5 h-3.5 shrink-0"></i><span>${escapeInlineHtml(p.endereco)}</span></div>`:''}</div></div><div class="flex flex-wrap justify-end gap-2">${finishAction}${canPrintProjectSheet()?`<button onclick="window.printReport()" class="v86-btn"><i data-lucide="printer" class="w-4 h-4"></i>${window.t('print_ficha')}</button>`:''}${state.userPerms.tab_proj||state.isSuperAdmin?`<button onclick="window.toggleArchive('${p.id}',${!!p.archived})" class="v86-btn"><i data-lucide="${p.archived?'package-open':'archive'}" class="w-4 h-4"></i>${state.lang==='pt'?(p.archived?'Reativar':'Arquivar'):(p.archived?'Restore':'Archive')}</button>`:''}${state.isSuperAdmin?`<button onclick="window.editP('${p.id}')" class="v86-btn"><i data-lucide="edit-3" class="w-4 h-4"></i>${state.lang==='pt'?'Editar':'Edit'}</button>`:''}</div></div>`;
+        return `${closureNotice}<div class="v86-head no-print"><div class="v86-head-left"><button class="v86-back" aria-label="${state.lang==='pt'?'Voltar':'Back'}" title="${state.lang==='pt'?'Voltar':'Back'}" onclick="${state.activeModule?'window.closeProjectModule()':'window.closeProjectDetails()'}"><span class="v86-back-glyph" aria-hidden="true">←</span></button><div class="v86-head-copy"><div class="flex flex-wrap items-center gap-3"><h1 class="v86-title">${escapeInlineHtml(getProjectPrimaryTitle(p))}</h1><span class="v86-status ${st.cls}"><i data-lucide="${st.cls==='success'?'check-circle-2':st.cls==='warning'?'clock-3':st.cls==='danger'?'shield-alert':'circle-dot'}" class="w-3.5 h-3.5"></i>${st.text}${completed?` · ${completed}`:''}</span></div>${moduleTitle?`<div class="v86-subtitle">${escapeInlineHtml(moduleTitle)}</div>`:''}${p.nomeProjeto?`<div class="v86-meta-line"><i data-lucide="bookmark" class="w-3.5 h-3.5 shrink-0"></i><span>${escapeInlineHtml(p.nomeProjeto)}</span></div>`:''}${p.endereco?`<div class="v86-meta-line"><i data-lucide="map-pin" class="w-3.5 h-3.5 shrink-0"></i><span>${escapeInlineHtml(p.endereco)}</span></div>`:''}</div></div><div class="flex flex-wrap justify-end gap-2">${finishAction}${canPrintProjectSheet()?`<button onclick="window.printReport()" class="v86-btn"><i data-lucide="printer" class="w-4 h-4"></i>${window.t('print_ficha')}</button>`:''}${!state.portalBridge && (state.userPerms.tab_proj||state.isSuperAdmin)?`<button onclick="window.toggleArchive('${p.id}',${!!p.archived})" class="v86-btn"><i data-lucide="${p.archived?'package-open':'archive'}" class="w-4 h-4"></i>${state.lang==='pt'?(p.archived?'Reativar':'Arquivar'):(p.archived?'Restore':'Archive')}</button>`:''}${state.isSuperAdmin?`<button onclick="window.editP('${p.id}')" class="v86-btn"><i data-lucide="edit-3" class="w-4 h-4"></i>${state.lang==='pt'?'Editar':'Edit'}</button>`:''}</div></div>`;
     }
     function v86ReceiptRows(p){
         const rows=(p.recebimentos||[]).slice().sort((a,b)=>String(a.data||'').localeCompare(String(b.data||''))).map(r=>{const method=getReceiptEffectiveMethod(r,p);const fee=getReceiptFee(r,p);const net=getReceiptNet(r,p);return `<tr><td>${r.data?new Date(r.data+'T12:00:00').toLocaleDateString(state.lang==='pt'?'pt-BR':'en-US'):'—'}</td><td><span class="v86-status info">${escapeInlineHtml(method||'—')}</span></td><td class="money">${formatCurr(r.valor)}</td><td class="money ${fee>0?'text-red-300':''}">${formatCurr(fee)}</td><td class="money text-emerald-300">${formatCurr(net)}</td><td><span class="v86-status success">${state.lang==='pt'?'Recebido':'Received'}</span></td></tr>`}).join('');
@@ -7010,7 +7012,9 @@ function getSellerCommissionPeriodReport(projects, startStr, endStr) {
         today.setHours(0, 0, 0, 0);
         const clientReceiptOverdue = pendingClientReceipt && lastReceiptDate && lastReceiptDate < today;
         const overdueDays = clientReceiptOverdue ? Math.floor((today - lastReceiptDate) / 86400000) : 0;
-        const commissionCard = pendingClientReceipt
+        const commissionCard = state.portalBridge
+            ? `<div class="v86-kpi"><span>${pendingClientReceipt ? (state.lang==='pt'?'Recebimento pendente':'Client receipt pending') : (state.lang==='pt'?'Pago ao vendedor':'Paid to seller')}</span><strong class="amber">${formatCurr(pendingClientReceipt ? f.clientOutstanding : f.totalPaid)}</strong></div>`
+            : pendingClientReceipt
             ? `<button type="button" onclick="window.openKpiFinancialEditor('${p.id}','receipts')" class="v86-kpi v86-payment-action balance-due-pulse text-left hover:bg-red-500/10 transition-colors"><span>${clientReceiptOverdue ? (state.lang==='pt'?'Recebimento em atraso':'Overdue client receipt') : (state.lang==='pt'?'Recebimento pendente':'Client receipt pending')}</span><strong class="red">${formatCurr(f.clientOutstanding)}</strong><small class="mt-2 block text-[10px] font-black uppercase tracking-widest text-red-300">${clientReceiptOverdue ? (state.lang==='pt' ? `Último recebimento há ${overdueDays} dia${overdueDays === 1 ? '' : 's'} · Clique para registrar` : `Last receipt ${overdueDays} day${overdueDays === 1 ? '' : 's'} ago · Click to record`) : (state.lang==='pt'?'Clique para registrar':'Click to record')}</small></button>`
             : canPayCommission
             ? `<button type="button" onclick="window.confirmCommissionPayment('${p.id}','due')" class="v86-kpi v86-payment-action balance-due-pulse text-left hover:bg-amber-500/10 transition-colors"><span>${state.lang==='pt'?'Comissão pendente':'Commission pending'}</span><strong class="amber">${formatCurr(commissionDue)}</strong><small class="mt-2 block text-[10px] font-black uppercase tracking-widest text-amber-300">${state.lang==='pt'?'Clique para pagar':'Click to pay'}</small></button>`
@@ -7562,9 +7566,20 @@ function getSellerCommissionPeriodReport(projects, startStr, endStr) {
         applyThemeConfig(); 
         if (u) {
             try {
+                const tokenClaims = (await u.getIdTokenResult()).claims;
+                if (portalBridgeAvailable && portalCompanyAllowed && tokenClaims.portal_bridge === true && tokenClaims.portal_company !== portalCompany) {
+                    await signOut(auth);
+                    return;
+                }
                 const session = await secureApi('session');
                 state.isSuperAdmin = session.superAdmin === true;
-                if (portalBridgeAvailable && portalCompanyAllowed) document.getElementById('portal-link-account').textContent = (await u.getIdTokenResult()).claims.portal_bridge === true ? 'Refresh Portal' : 'Link Portal';
+                state.portalBridge = tokenClaims.portal_bridge === true;
+                if (portalBridgeAvailable && portalCompanyAllowed) {
+                    const portalButton = document.getElementById('portal-link-account');
+                    portalButton.textContent = state.portalBridge ? 'Refresh Portal' : 'Link Portal';
+                    portalButton.title = portalButton.textContent;
+                    portalButton.setAttribute('aria-label', portalButton.textContent);
+                }
                 state.team = Array.isArray(session.team) ? session.team : [];
                 applySessionPermissions(session.permissions || {});
                 document.getElementById('auth-screen').classList.add('hidden');
@@ -7581,6 +7596,7 @@ function getSellerCommissionPeriodReport(projects, startStr, endStr) {
                 await signOut(auth);
             }
         } else {
+            state.portalBridge = false;
             document.getElementById('auth-screen').classList.remove('hidden'); document.getElementById('main-app').classList.add('hidden'); document.body.className = 'auth-body';
         }
         window.setLang(state.lang); try { lucide.createIcons(); } catch {}

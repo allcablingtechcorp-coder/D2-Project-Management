@@ -2,11 +2,13 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const {projectGrant,portalClaims,intersectPermissions,createPortalSso}=require('./portal-sso');
 
-const session={uid:'portal-owner',email:'owner@example.com',companies:['smart'],grants:{smart:{status:'active',modules:{projects:{scope:'company',actions:['read','create']}}}}};
+const session={uid:'portal-owner',email:'owner@example.com',superAdmin:true,companies:['smart'],grants:{smart:{status:'active',modules:{projects:{scope:'company',actions:['read','read_cost','create']}}}}};
 
 test('a company link requires a company-wide project grant',()=>{
   assert.deepEqual(projectGrant(session,'smart'),session.grants.smart.modules.projects);
   assert.equal(projectGrant(session,'hvac'),null);
+  assert.equal(projectGrant({...session,superAdmin:false},'smart'),null);
+  assert.equal(projectGrant({...session,grants:{smart:{status:'active',modules:{projects:{scope:'company',actions:['read']}}}}},'smart'),null);
   assert.equal(projectGrant({...session,grants:{smart:{status:'active',modules:{projects:{scope:'own',actions:['read']}}}}},'smart'),null);
 });
 

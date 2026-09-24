@@ -8,7 +8,7 @@ const Busboy = require('busboy');
 const crypto = require('crypto');
 const {createPortalSso,intersectPermissions}=require('./portal-sso');
 
-initializeApp({storageBucket: 'd2-project-management.firebasestorage.app'});
+initializeApp({storageBucket: 'd2-project-management.firebasestorage.app',serviceAccountId:'254630664761-compute@developer.gserviceaccount.com'});
 
 const db = getFirestore();
 const bucket = getStorage().bucket();
