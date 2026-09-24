@@ -1392,6 +1392,7 @@
 </div>
 
 <script type="module">
+    import { preferredCompany, allowedCompany, companyQueryValue, COMPANY_KEY } from './portal-entry.mjs';
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, doc, updateDoc, addDoc, deleteDoc, onSnapshot, serverTimestamp, arrayUnion, getDocs, writeBatch, runTransaction, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -1413,18 +1414,23 @@
     const LANGUAGE_STORAGE_KEY = 'd2-project-management.language.v2';
     const savedLanguage = (() => {
         try {
+            const requested = new URLSearchParams(window.location.search).get('lang');
+            if (requested === 'en' || requested === 'pt') return requested;
             const value = localStorage.getItem(LANGUAGE_STORAGE_KEY);
             return value === 'en' || value === 'pt' ? value : 'en';
         } catch (_) {
             return 'en';
         }
     })();
+    const initialCompany = preferredCompany(window.location.search, (() => {
+        try { return localStorage.getItem(COMPANY_KEY); } catch (_) { return ''; }
+    })());
 
     let state = { 
         user: null, 
         isSuperAdmin: false,
         userPerms: { tab_proj: true, tab_new: false, tab_rep: false, fin: false, costs: false, contractors: false, smart: true, hvac: false, global: false },
-        projects: [], contractors: [], contractorPayments: [], contractorDocumentRequests: [], team: [], logs: [], logsUserFilter: '', logsSearchQuery: '', company: 'Ambas', lang: savedLanguage, theme: 'dark',
+        projects: [], contractors: [], contractorPayments: [], contractorDocumentRequests: [], team: [], logs: [], logsUserFilter: '', logsSearchQuery: '', company: initialCompany, lang: savedLanguage, theme: 'dark',
         editingPayments: null, editingRecs: null, reportPendingPayments: null, reportProjectList: null, reportProjectListReturn: null, returnToReport: false, returnToReportAfterEdit: false, focusedProject: null, activeModule: null, archiveFilter: 'active',
         reportActiveKpi: 'receita', projectSellerFilter: 'all', projectSearchQuery: '', contractorSearchQuery: '', contractorCompanyFilter: 'Ambas', contractorArchiveFilter: 'active', reportPeriodStart: '', reportPeriodEnd: '', reportSellerFilter: 'all', reportArchiveFilter: 'all', reportTableSort: { key: 'default', direction: 'asc' }, reportRangePreset: 'year', mobileNavOpen: false, currentView: 'projects'
     };
@@ -2044,13 +2050,17 @@
             c.innerHTML += `<button onclick="window.selectUnit('Ambas')" class="unit-pill unit-pill-btn ${state.company === 'Ambas' ? 'active':''}" data-i18n="filter_both">${window.t('filter_both')}</button>`;
         };
         
+        state.company = allowedCompany(state.company, p);
+        try { if (state.company) localStorage.setItem(COMPANY_KEY, state.company); } catch (_) {}
+        const portalUrl = new URL(window.location.href);
+        if (portalUrl.searchParams.has('company')) {
+            const queryValue = companyQueryValue(state.company);
+            if (queryValue) portalUrl.searchParams.set('company', queryValue);
+            else portalUrl.searchParams.delete('company');
+            window.history.replaceState(window.history.state, '', portalUrl);
+        }
         renderCompanyPills('dynamic-unit-pills-proj');
         window.renderProjectSellerFilter();
-
-        if(state.company === 'Ambas' && (!p.smart || !p.hvac)) {
-            if(p.smart) state.company = 'Smart Home';
-            else if(p.hvac) state.company = 'HVAC';
-        }
 
         // A tela administrativa nunca deve permanecer aberta para membros da equipe.
         if (!state.isSuperAdmin && ['users', 'logs'].includes(state.currentView)) {
@@ -2133,7 +2143,14 @@
 
     // --- LÓGICA DE FILTROS GLOBAIS DE EMPRESA ---
     window.selectUnit = (unit) => {
+        if (allowedCompany(unit, state.userPerms) !== unit) return;
         state.company = unit;
+        try { localStorage.setItem(COMPANY_KEY, unit); } catch (_) {}
+        const url = new URL(window.location.href);
+        const queryValue = companyQueryValue(unit);
+        if (queryValue) url.searchParams.set('company', queryValue);
+        else url.searchParams.delete('company');
+        window.history.replaceState(window.history.state, '', url);
         
         document.querySelectorAll('.unit-pill-btn').forEach(b => {
              b.classList.remove('active');

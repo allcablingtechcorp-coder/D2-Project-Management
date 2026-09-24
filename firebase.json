@@ -24,6 +24,7 @@
       ".vscode/**",
       ".idea/**",
       "functions/**",
+      "tests/**",
       "firestore.rules",
       "storage.rules",
       "**/node_modules/**",
