@@ -2051,6 +2051,14 @@
         };
         
         state.company = allowedCompany(state.company, p);
+        try { if (state.company) localStorage.setItem(COMPANY_KEY, state.company); } catch (_) {}
+        const portalUrl = new URL(window.location.href);
+        if (portalUrl.searchParams.has('company')) {
+            const queryValue = companyQueryValue(state.company);
+            if (queryValue) portalUrl.searchParams.set('company', queryValue);
+            else portalUrl.searchParams.delete('company');
+            window.history.replaceState(window.history.state, '', portalUrl);
+        }
         renderCompanyPills('dynamic-unit-pills-proj');
         window.renderProjectSellerFilter();
 
