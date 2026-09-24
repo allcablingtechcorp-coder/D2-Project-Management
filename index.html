@@ -1039,7 +1039,7 @@
 
 <!-- Login Screen -->
 <div id="portal-boot" class="hidden fixed inset-0 z-[2100] flex items-center justify-center p-6" style="background:#f4f8fb;color:#193b4e;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-    <div style="max-width:420px;text-align:center"><img src="logo-D2-Group-preto.png" alt="D2 Group" style="width:145px;height:70px;object-fit:contain;margin:0 auto 16px"><p id="portal-boot-message" role="status" style="font-size:16px;font-weight:650">Connecting Projects…</p><a id="portal-boot-back" href="https://d2-group-system.web.app/workspace.html" class="hidden" style="display:inline-flex;margin-top:20px;min-height:44px;align-items:center;padding:0 18px;border:1px solid #b8ccd8;border-radius:10px;color:#204d62;text-decoration:none;font-weight:700">← Workspace</a></div>
+    <div style="max-width:420px;text-align:center"><img src="logo-D2-Group-preto.png" alt="D2 Group" style="width:145px;height:70px;object-fit:contain;margin:0 auto 16px"><p id="portal-boot-message" role="status" style="font-size:16px;font-weight:650">Connecting Projects…</p><a id="portal-boot-back" href="https://d2-group-system.web.app/workspace.html" class="hidden" style="display:inline-flex;margin-top:20px;min-height:44px;align-items:center;padding:0 18px;border:1px solid #b8ccd8;border-radius:10px;color:#204d62;text-decoration:none;font-weight:700">← Back to Portal</a></div>
 </div>
 <div id="auth-screen" class="fixed inset-0 z-[2000] flex items-center justify-center p-6">
     <div class="auth-card">
@@ -1069,7 +1069,7 @@
                 <span data-i18n="btn_login">Acessar Sistema</span>
             </button>
             <button type="button" id="portal-signin" class="btn-access" style="margin-top:12px;background:#e8f4f5;color:#183d4d">Continue from D2 Portal</button>
-            <a href="https://d2-group-system.web.app/workspace.html" id="auth-portal-back" style="display:flex;align-items:center;justify-content:center;min-height:44px;margin-top:12px;color:#d4e8ef;text-decoration:underline;font-size:13px;font-weight:700">← Workspace</a>
+            <a href="https://d2-group-system.web.app/workspace.html" id="auth-portal-back" style="display:flex;align-items:center;justify-content:center;min-height:44px;margin-top:12px;color:#d4e8ef;text-decoration:underline;font-size:13px;font-weight:700">← Back to Portal</a>
         </form>
 
         <div class="mt-8 flex justify-center gap-4">
@@ -1195,7 +1195,7 @@
     <!-- HEADER PRINCIPAL · CONCEITO 2 -->
     <header id="main-header" class="no-print c2-topbar sticky top-0 z-40">
         <div class="c2-topbar-inner">
-            <a id="portal-back" href="https://d2-group-system.web.app/workspace.html" style="display:inline-flex;align-items:center;min-height:44px;padding:0 11px;border:1px solid #bdcddb;border-radius:11px;color:inherit;text-decoration:none;font-size:13px;font-weight:700;white-space:nowrap">← <span id="portal-back-label" style="margin-left:6px">Workspace</span></a>
+            <a id="portal-back" href="https://d2-group-system.web.app/workspace.html" style="display:inline-flex;align-items:center;min-height:44px;padding:0 11px;border:1px solid #bdcddb;border-radius:11px;color:inherit;text-decoration:none;font-size:13px;font-weight:700;white-space:nowrap">← <span id="portal-back-label" style="margin-left:6px">Back to Portal</span></a>
             <div class="c2-brand-wrap">
                 <div class="c2-brand-mark"><img id="header-logo" src="logo-D2-Group-trimmed.png" alt="D2 Group"></div>
                 <div class="c2-brand-copy hidden sm:block">
@@ -1625,7 +1625,7 @@
             window.history.replaceState(window.history.state, '', url);
         }
         document.documentElement.lang = language === 'pt' ? 'pt-BR' : 'en';
-        const portalBackText = language === 'pt' ? 'Início' : 'Workspace';
+        const portalBackText = language === 'pt' ? 'Voltar ao Portal' : 'Back to Portal';
         document.getElementById('portal-back-label').textContent = portalBackText;
         document.getElementById('auth-portal-back').textContent = `← ${portalBackText}`;
         document.getElementById('portal-boot-back').textContent = `← ${portalBackText}`;
