@@ -1063,6 +1063,7 @@
             <button type="submit" id="btn-entrar" class="btn-access">
                 <span data-i18n="btn_login">Acessar Sistema</span>
             </button>
+            <button type="button" id="portal-signin" class="btn-access" style="margin-top:12px;background:#e8f4f5;color:#183d4d">Continue from D2 Portal</button>
         </form>
 
         <div class="mt-8 flex justify-center gap-4">
@@ -1210,6 +1211,7 @@
             </nav>
 
             <div class="c2-header-actions">
+                <button type="button" id="portal-link-account" class="c2-icon-btn" title="Link this Projects account to D2 Portal" aria-label="Link this Projects account to D2 Portal" style="width:auto;padding:0 10px;font-size:12px;font-weight:700">Link Portal</button>
                 <div id="dashboard-language-switcher" class="dashboard-language-switcher hidden" aria-label="Selecionar idioma">
                     <button type="button" onclick="window.setLang('en')" class="dashboard-language-option" data-dashboard-language="en" title="English (United States)" aria-label="English (United States)"><img src="https://flagcdn.com/w80/us.png" alt="United States"></button>
                     <button type="button" onclick="window.setLang('pt')" class="dashboard-language-option" data-dashboard-language="pt" title="Português (Brasil)" aria-label="Português (Brasil)"><img src="https://flagcdn.com/w80/br.png" alt="Brasil"></button>
@@ -1394,7 +1396,7 @@
 <script type="module">
     import { preferredCompany, allowedCompany, companyQueryValue, COMPANY_KEY } from './portal-entry.mjs';
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getAuth, signInWithEmailAndPassword, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, doc, updateDoc, addDoc, deleteDoc, onSnapshot, serverTimestamp, arrayUnion, getDocs, writeBatch, runTransaction, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -2501,6 +2503,49 @@
         });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.error || (state.lang === 'pt' ? 'Operação não concluída.' : 'Operation failed.'));
+        return result;
+    }
+
+    const portalCompany = new URLSearchParams(window.location.search).get('company');
+    const portalCompanyAllowed = portalCompany === 'smart' || portalCompany === 'hvac';
+    let portalExpiryNotice;
+    function requestPortalToken() {
+        if (!portalCompanyAllowed) return Promise.reject(new Error('Open Projects from a company in the D2 Portal.'));
+        const nonce = Array.from(crypto.getRandomValues(new Uint8Array(24)), byte => byte.toString(16).padStart(2, '0')).join('');
+        const popup = window.open('https://d2-group-system.web.app/portal-handoff.html', 'd2-project-portal', 'popup,width=560,height=650');
+        if (!popup) return Promise.reject(new Error('Allow the D2 Portal window and try again.'));
+        return new Promise((resolve, reject) => {
+            let done = false;
+            const finish = (error, token) => {
+                if (done) return;
+                done = true; clearInterval(send); clearTimeout(timeout); window.removeEventListener('message', receive);
+                try { popup.close(); } catch (_) {}
+                if (error) reject(error); else resolve(token);
+            };
+            const receive = event => {
+                if (event.origin !== 'https://d2-group-system.web.app' || event.source !== popup || event.data?.type !== 'd2-project-handoff-response' || event.data.nonce !== nonce) return;
+                if (event.data.company && event.data.company !== portalCompany) return finish(new Error('The selected company changed.'));
+                if (event.data.error) return finish(new Error(event.data.error));
+                if (typeof event.data.token !== 'string') return finish(new Error('Portal connection failed.'));
+                finish(null, event.data.token);
+            };
+            window.addEventListener('message', receive);
+            const request = { type: 'd2-project-handoff-request', nonce, company: portalCompany };
+            const send = window.setInterval(() => { if (popup.closed) return finish(new Error('Portal window was closed.')); popup.postMessage(request, 'https://d2-group-system.web.app'); }, 400);
+            const timeout = window.setTimeout(() => finish(new Error('Portal connection timed out.')), 30000);
+        });
+    }
+
+    async function portalSso(action) {
+        const portalToken = await requestPortalToken();
+        const pmToken = action === 'pair' ? await auth.currentUser?.getIdToken() : null;
+        const response = await fetch('/api/portal-sso', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(pmToken ? { Authorization: `Bearer ${pmToken}` } : {}) }, body: JSON.stringify({ action, portalToken, company: portalCompany }), cache: 'no-store' });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'Portal connection failed.');
+        if (action === 'pair') return result;
+        await signInWithCustomToken(auth, result.token);
+        clearTimeout(portalExpiryNotice);
+        portalExpiryNotice = window.setTimeout(() => window.showModal('Portal session', 'This Projects connection expires soon. Select Refresh Portal in the header to continue.', 'info'), 14 * 60 * 1000);
         return result;
     }
 
@@ -7517,6 +7562,7 @@ function getSellerCommissionPeriodReport(projects, startStr, endStr) {
             try {
                 const session = await secureApi('session');
                 state.isSuperAdmin = session.superAdmin === true;
+                if (portalCompanyAllowed) document.getElementById('portal-link-account').textContent = (await u.getIdTokenResult()).claims.portal_bridge === true ? 'Refresh Portal' : 'Link Portal';
                 state.team = Array.isArray(session.team) ? session.team : [];
                 applySessionPermissions(session.permissions || {});
                 document.getElementById('auth-screen').classList.add('hidden');
@@ -7630,6 +7676,13 @@ function getSellerCommissionPeriodReport(projects, startStr, endStr) {
 
     document.addEventListener('DOMContentLoaded', () => {
         try { lucide.createIcons(); } catch {}
+
+        const portalSignIn = document.getElementById('portal-signin');
+        const portalLink = document.getElementById('portal-link-account');
+        portalSignIn.style.display = portalCompanyAllowed ? '' : 'none';
+        portalLink.style.display = portalCompanyAllowed ? '' : 'none';
+        portalSignIn.onclick = async () => { portalSignIn.disabled = true; hideLoginMessages(); try { await portalSso('exchange'); } catch (error) { showLoginError(error.message); } finally { portalSignIn.disabled = false; } };
+        portalLink.onclick = async () => { portalLink.disabled = true; try { const claims = (await auth.currentUser.getIdTokenResult()).claims; if (claims.portal_bridge === true) await portalSso('exchange'); else { await portalSso('pair'); window.showModal('D2 Portal', 'Projects is linked to your D2 Portal account. Future visits can use Continue from D2 Portal.', 'info'); } } catch (error) { window.showModal('D2 Portal', error.message, 'error'); } finally { portalLink.disabled = false; } };
 
         document.getElementById('login-form').onsubmit = async (e) => {
             e.preventDefault(); hideLoginMessages(); const btn = document.getElementById('btn-entrar'); btn.disabled = true;
