@@ -2508,6 +2508,8 @@
 
     const portalCompany = new URLSearchParams(window.location.search).get('company');
     const portalCompanyAllowed = portalCompany === 'smart' || portalCompany === 'hvac';
+    // Activate after the scoped IAM signer grant and live pair/exchange checks pass.
+    const portalBridgeAvailable = false;
     let portalExpiryNotice;
     function requestPortalToken() {
         if (!portalCompanyAllowed) return Promise.reject(new Error('Open Projects from a company in the D2 Portal.'));
@@ -7562,7 +7564,7 @@ function getSellerCommissionPeriodReport(projects, startStr, endStr) {
             try {
                 const session = await secureApi('session');
                 state.isSuperAdmin = session.superAdmin === true;
-                if (portalCompanyAllowed) document.getElementById('portal-link-account').textContent = (await u.getIdTokenResult()).claims.portal_bridge === true ? 'Refresh Portal' : 'Link Portal';
+                if (portalBridgeAvailable && portalCompanyAllowed) document.getElementById('portal-link-account').textContent = (await u.getIdTokenResult()).claims.portal_bridge === true ? 'Refresh Portal' : 'Link Portal';
                 state.team = Array.isArray(session.team) ? session.team : [];
                 applySessionPermissions(session.permissions || {});
                 document.getElementById('auth-screen').classList.add('hidden');
@@ -7679,8 +7681,8 @@ function getSellerCommissionPeriodReport(projects, startStr, endStr) {
 
         const portalSignIn = document.getElementById('portal-signin');
         const portalLink = document.getElementById('portal-link-account');
-        portalSignIn.style.display = portalCompanyAllowed ? '' : 'none';
-        portalLink.style.display = portalCompanyAllowed ? '' : 'none';
+        portalSignIn.style.display = portalBridgeAvailable && portalCompanyAllowed ? '' : 'none';
+        portalLink.style.display = portalBridgeAvailable && portalCompanyAllowed ? '' : 'none';
         portalSignIn.onclick = async () => { portalSignIn.disabled = true; hideLoginMessages(); try { await portalSso('exchange'); } catch (error) { showLoginError(error.message); } finally { portalSignIn.disabled = false; } };
         portalLink.onclick = async () => { portalLink.disabled = true; try { const claims = (await auth.currentUser.getIdTokenResult()).claims; if (claims.portal_bridge === true) await portalSso('exchange'); else { await portalSso('pair'); window.showModal('D2 Portal', 'Projects is linked to your D2 Portal account. Future visits can use Continue from D2 Portal.', 'info'); } } catch (error) { window.showModal('D2 Portal', error.message, 'error'); } finally { portalLink.disabled = false; } };
 

@@ -71,6 +71,7 @@ function createPortalSso({auth,db,getPortalSession,getPmContext,getPmProfile,clo
       const token=await auth.createCustomToken(mapping.pmUid,portalClaims(company,grant,clock()));
       return res.json({ok:true,token,expiresInSeconds:15*60});
     }catch(failure){
+      if(!failure.status)console.error('Portal SSO failed:',failure.code||failure.name||'unknown',failure.message);
       return res.status(failure.status||500).json({error:failure.status?failure.message:'Unable to connect Projects. Try again.'});
     }
   };
