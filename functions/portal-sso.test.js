@@ -23,13 +23,13 @@ test('Portal claims expire and Project permissions are narrowed to one company',
   assert.equal(intersectPermissions(current,{}),current);
 });
 
-function harness({portal=session,pmEmail='owner@example.com'}={}){
+function harness({portal=session,pmEmail='owner@example.com',signerFails=false}={}){
   const docs=new Map();
   const db={
     collection(path){return {doc(id){const key=`${path}/${id}`;return {key,async get(){return {exists:docs.has(key),data:()=>docs.get(key)}}};}}},
     async runTransaction(work){return work({get:ref=>ref.get(),set(ref,value){docs.set(ref.key,value)}})}
   };
-  const auth={async getUser(){return {uid:'pm-owner',email:pmEmail,disabled:false}},async createCustomToken(uid,claims){return JSON.stringify({uid,claims})}};
+  const auth={async getUser(){return {uid:'pm-owner',email:pmEmail,disabled:false}},async createCustomToken(uid,claims){if(signerFails)throw Error('Signing unavailable');return JSON.stringify({uid,claims})}};
   const getPmContext=async()=>({email:pmEmail,decoded:{uid:'pm-owner'},access:{p_tab_proj:true,p_smart:true,p_hvac:false}});
   const getPmProfile=async()=>({exists:true});
   const handler=createPortalSso({auth,db,getPortalSession:async()=>portal,getPmContext,getPmProfile,clock:()=>1000000});
@@ -51,6 +51,12 @@ test('an unpaired Portal identity cannot obtain a Projects token',async()=>{
 test('pairing requires control of matching Portal and Projects accounts',async()=>{
   const h=harness({pmEmail:'other@example.com'});
   assert.equal((await h.call('pair')).statusCode,403);
+  assert.equal(h.docs.size,0);
+});
+
+test('a link is not saved when Projects cannot sign bridge tokens',async()=>{
+  const h=harness({signerFails:true});
+  assert.equal((await h.call('pair')).statusCode,500);
   assert.equal(h.docs.size,0);
 });
 

@@ -48,6 +48,8 @@ function createPortalSso({auth,db,getPortalSession,getPmContext,getPmProfile,clo
         if(normalizedEmail(context.email)!==normalizedEmail(session.email))throw error('The Portal and Projects account emails must match.',403);
         if(context.decoded.portal_bridge===true)throw error('Sign in directly to Projects to link your account.',403);
         if(context.access?.p_tab_proj!==true || context.access?.[company==='smart'?'p_smart':'p_hvac']!==true)throw error('This Projects account is not authorized for the selected company.',403);
+        // Verify that the destination can sign a bridge token before persisting the link.
+        await auth.createCustomToken(context.decoded.uid,portalClaims(company,grant,clock()));
         const reverseRef=reverse.doc(context.decoded.uid);
         await db.runTransaction(async tx=>{
           const [forward,back]=await Promise.all([tx.get(ref),tx.get(reverseRef)]);
