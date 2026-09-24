@@ -1610,6 +1610,11 @@
         const language = l === 'en' ? 'en' : 'pt';
         state.lang = language;
         try { localStorage.setItem(LANGUAGE_STORAGE_KEY, language); } catch (_) {}
+        const url = new URL(window.location.href);
+        if (url.searchParams.has('lang') && url.searchParams.get('lang') !== language) {
+            url.searchParams.set('lang', language);
+            window.history.replaceState(window.history.state, '', url);
+        }
         document.documentElement.lang = language === 'pt' ? 'pt-BR' : 'en';
         document.querySelectorAll('.flag-btn').forEach(b => b.classList.toggle('active', b.id === 'l-' + language));
         document.querySelectorAll('[data-dashboard-language]').forEach(b => b.classList.toggle('active', b.dataset.dashboardLanguage === language));
